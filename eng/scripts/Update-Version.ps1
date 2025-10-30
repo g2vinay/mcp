@@ -29,7 +29,17 @@ $autoVersion = $false
 if (!$Version) {
     # get the number of commits since the last tag
     $nextVersion = [AzureEngSemanticVersion]::new($currentVersion)
-    $nextVersion.IncrementAndSetToPrerelease('patch')
+    
+    # If current version is a beta, increment the beta number (e.g., 2.0.0-beta.1 -> 2.0.0-beta.2)
+    if ($nextVersion.PrereleaseLabel -eq 'beta') {
+        $nextVersion.PrereleaseNumber++
+        Write-Host "Beta version detected. Incrementing beta number: $currentVersion -> $($nextVersion.ToString())" -ForegroundColor Cyan
+    }
+    else {
+        $nextVersion.IncrementAndSetToPrerelease('patch')
+        Write-Host "Non-beta version detected. Incrementing patch and setting to prerelease: $currentVersion -> $($nextVersion.ToString())" -ForegroundColor Cyan
+    }
+    
     $Version = $nextVersion.ToString()
     $autoVersion = $true
 }
