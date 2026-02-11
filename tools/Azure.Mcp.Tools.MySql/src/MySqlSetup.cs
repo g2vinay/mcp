@@ -26,14 +26,15 @@ public class MySqlSetup : IAreaSetup
         var mysql = new CommandGroup(Name, "MySQL operations - Commands for managing Azure Database for MySQL Flexible Server resources. Includes operations for listing servers and databases, executing SQL queries, managing table schemas, and configuring server parameters.");
         rootGroup.AddSubGroup(mysql);
 
+        // Consolidated hierarchical list command
+        mysql.AddCommand("list", new MySqlListCommand(loggerFactory.CreateLogger<MySqlListCommand>()));
+
         var database = new CommandGroup("database", "MySQL database operations");
         mysql.AddSubGroup(database);
-        database.AddCommand("list", new DatabaseListCommand(loggerFactory.CreateLogger<DatabaseListCommand>()));
         database.AddCommand("query", new DatabaseQueryCommand(loggerFactory.CreateLogger<DatabaseQueryCommand>()));
 
         var table = new CommandGroup("table", "MySQL table operations");
         mysql.AddSubGroup(table);
-        table.AddCommand("list", new TableListCommand(loggerFactory.CreateLogger<TableListCommand>()));
 
         var schema = new CommandGroup("schema", "MySQL table schema operations");
         table.AddSubGroup(schema);
@@ -41,7 +42,6 @@ public class MySqlSetup : IAreaSetup
 
         var server = new CommandGroup("server", "MySQL server operations");
         mysql.AddSubGroup(server);
-        server.AddCommand("list", new ServerListCommand(loggerFactory.CreateLogger<ServerListCommand>()));
 
         var config = new CommandGroup("config", "MySQL server configuration operations");
         server.AddSubGroup(config);

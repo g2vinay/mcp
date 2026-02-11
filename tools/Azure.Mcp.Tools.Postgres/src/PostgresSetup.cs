@@ -26,14 +26,15 @@ public class PostgresSetup : IAreaSetup
         var pg = new CommandGroup(Name, "PostgreSQL operations - Commands for managing Azure Database for PostgreSQL Flexible Server resources. Includes operations for listing servers and databases, executing SQL queries, managing table schemas, and configuring server parameters.");
         rootGroup.AddSubGroup(pg);
 
+        // Consolidated hierarchical list command
+        pg.AddCommand("list", new PostgresListCommand(loggerFactory.CreateLogger<PostgresListCommand>()));
+
         var database = new CommandGroup("database", "PostgreSQL database operations");
         pg.AddSubGroup(database);
-        database.AddCommand("list", new DatabaseListCommand(loggerFactory.CreateLogger<DatabaseListCommand>()));
         database.AddCommand("query", new DatabaseQueryCommand(loggerFactory.CreateLogger<DatabaseQueryCommand>()));
 
         var table = new CommandGroup("table", "PostgreSQL table operations");
         pg.AddSubGroup(table);
-        table.AddCommand("list", new TableListCommand(loggerFactory.CreateLogger<TableListCommand>()));
 
         var schema = new CommandGroup("schema", "PostgreSQL table schema operations");
         table.AddSubGroup(schema);
@@ -41,7 +42,6 @@ public class PostgresSetup : IAreaSetup
 
         var server = new CommandGroup("server", "PostgreSQL server operations");
         pg.AddSubGroup(server);
-        server.AddCommand("list", new ServerListCommand(loggerFactory.CreateLogger<ServerListCommand>()));
 
         var config = new CommandGroup("config", "PostgreSQL server configuration operations");
         server.AddSubGroup(config);
