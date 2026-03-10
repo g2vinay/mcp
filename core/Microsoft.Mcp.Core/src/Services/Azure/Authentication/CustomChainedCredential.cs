@@ -1,6 +1,7 @@
 // Copyright (c) Microsoft Corporation.
 // Licensed under the MIT License.
 
+using System.Runtime.InteropServices;
 using System.Text;
 using Azure.Core;
 using Azure.Identity;
@@ -73,10 +74,13 @@ namespace Azure.Mcp.Core.Services.Azure.Authentication;
 /// when "InteractiveBrowserCredential" is explicitly requested, or when running as a server.
 /// </para>
 /// <para>
-/// The <c>forceBrowserFallback</c> constructor parameter lets callers (e.g. registry server OAuth)
-/// request interactive browser as a last resort, but it is subject to the same restrictions:
-/// any explicit AZURE_TOKEN_CREDENTIALS value — including "prod" and named credentials — is
-/// always honored and prevents the browser popup even when <c>forceBrowserFallback</c> is <c>true</c>.
+/// The <c>forceBrowserFallback</c> constructor parameter is intended for registry server OAuth.
+/// When <c>true</c>, it adds the WAM identity broker as a last-resort credential so the registry
+/// server can silently acquire a token using the signed-in Windows account. On non-Windows platforms
+/// (where WAM is unavailable) it is silently skipped — no browser window is ever opened.
+/// It is still subject to pinned-mode restrictions: any explicit AZURE_TOKEN_CREDENTIALS value
+/// other than "dev" or "InteractiveBrowserCredential" is always honored and suppresses this
+/// fallback even when <c>forceBrowserFallback</c> is <c>true</c>.
 /// </para>
 /// <para>
 /// For User-Assigned Managed Identity, set the AZURE_CLIENT_ID environment variable to the client ID of the managed identity.
@@ -149,7 +153,7 @@ internal class CustomChainedCredential(string? tenantId = null, ILogger<CustomCh
 
         if (ShouldUseOnlyBrokerCredential())
         {
-            return CreateBrowserCredential(tenantId, authRecord);
+            return CreateBrokerCredential(tenantId, authRecord);
         }
 
         var creds = new List<TokenCredential>();
@@ -186,11 +190,28 @@ internal class CustomChainedCredential(string? tenantId = null, ILogger<CustomCh
         // Pinned mode: any explicit setting other than "dev" or "InteractiveBrowserCredential" means
         // the caller wants exactly that credential — no interactive popup, even with forceBrowserFallback.
         bool isPinnedCredentialMode = hasExplicitCredentialSetting && !isDevMode && !isExplicitBrowserMode;
-        bool shouldAddBrowserFallback = !isPinnedCredentialMode || forceBrowserFallback;
+        // forceBrowserFallback (registry OAuth): add WAM broker on Windows for silent SSO;
+        // silently skip on non-Windows — never open a browser window from this path.
+        // Normal interactive fallback: AZURE_TOKEN_CREDENTIALS not set, "dev", or explicit "InteractiveBrowserCredential".
+        // Pinned mode always wins — no interactive credential is added regardless of forceBrowserFallback.
+        bool shouldAddBrowserFallback = !isPinnedCredentialMode &&
+                                       (string.IsNullOrEmpty(ActiveTransport) || forceBrowserFallback);
 
         if (shouldAddBrowserFallback)
         {
-            creds.Add(CreateBrowserCredential(tenantId, authRecord));
+            if (forceBrowserFallback)
+            {
+                // Registry OAuth: try WAM broker for silent SSO with the signed-in Windows account.
+                // WAM is Windows-only — skip entirely on macOS/Linux so no browser window ever appears.
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    creds.Add(CreateBrokerCredential(tenantId, authRecord));
+                }
+            }
+            else
+            {
+                creds.Add(CreateBrowserCredential(tenantId, authRecord));
+            }
         }
 
         // Add DeviceCodeCredential as a fallback for headless environments (Docker, WSL, SSH, CI)
@@ -212,6 +233,15 @@ internal class CustomChainedCredential(string? tenantId = null, ILogger<CustomCh
     private static string TokenCacheName = "azure-mcp-msal.cache";
 
     private static TokenCredential CreateBrowserCredential(string? tenantId, AuthenticationRecord? authRecord)
+    {
+        return CreateBrokerCredential(tenantId, authRecord);
+    }
+
+    // Shared WAM broker credential used by:
+    //   - AZURE_MCP_ONLY_USE_BROKER_CREDENTIAL=true (explicit opt-in)
+    //   - forceBrowserFallback=true on Windows (registry OAuth silent SSO)
+    //   - default/dev/explicit browser modes (existing behavior via CreateBrowserCredential)
+    private static TimeoutTokenCredential CreateBrokerCredential(string? tenantId, AuthenticationRecord? authRecord)
     {
         string? clientId = Environment.GetEnvironmentVariable(ClientIdEnvVarName);
 
@@ -240,7 +270,6 @@ internal class CustomChainedCredential(string? tenantId = null, ILogger<CustomCh
 
         var browserCredential = new InteractiveBrowserCredential(brokerOptions);
 
-        // Check for timeout value in the environment variable
         string? timeoutValue = Environment.GetEnvironmentVariable(BrowserAuthenticationTimeoutEnvVarName);
         int timeoutSeconds = 300; // Default to 300 seconds (5 minutes)
         if (!string.IsNullOrEmpty(timeoutValue) && int.TryParse(timeoutValue, out int parsedTimeout) && parsedTimeout > 0)
