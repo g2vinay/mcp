@@ -966,7 +966,6 @@ This file contains prompts used for end-to-end testing to ensure each tool is in
 
 | Tool Name | Test Prompt |
 |:----------|:----------|
-| foundryextensions_agents_get-sdk-sample | Create a CLI app that can talk to a Microsoft Foundry Agent using Python SDK |
 | foundryextensions_knowledge_index_list | List all knowledge indexes in my Microsoft Foundry project |
 | foundryextensions_knowledge_index_list | Show me the knowledge indexes in my Microsoft Foundry project |
 | foundryextensions_knowledge_index_schema | Show me the schema for knowledge index \<index-name> in my Microsoft Foundry resource |
@@ -980,6 +979,3 @@ This file contains prompts used for end-to-end testing to ensure each tool is in
 | foundryextensions_resource_get | List all Microsoft Foundry resources in my subscription |
 | foundryextensions_resource_get | Show me the Microsoft Foundry resources in resource group <resource_group_name> |
 | foundryextensions_resource_get | Get details for Microsoft Foundry resource <resource_name> in resource group <resource_group_name> |
-| foundryextensions_threads_create | Create a Microsoft Foundry thread to hold the conversation |
-| foundryextensions_threads_get-messages | Show me the messages in the Microsoft Foundry thread with id <thread_id> |
-| foundryextensions_threads_list | List my Microsoft Foundry threads |
